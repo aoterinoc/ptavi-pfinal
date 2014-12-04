@@ -1,0 +1,10 @@
+<user>
+    <config>
+        <account username="alba@alba.com"/>
+        <uaserver ip="127.0.0.1" puerto="5000"/>
+        <rtpaudio puerto="5060"/>
+        <regproxy ip="127.0.0.1" puerto="2020"/>
+        <log path="ua1.log"/>
+        <audio path="cancion.mp3"/>
+    </config>
+</user>
