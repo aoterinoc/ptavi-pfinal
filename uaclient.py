@@ -50,11 +50,7 @@ if __name__ == "__main__":
     METODO = metodo.upper()
    
     #OPCION[3] cambiara segun el metodo empleado
-    Metodos_Aceptados = ['REGISTER', 'INVITE', 'BYE']
     
-    if METODO not in Metodos_Aceptados:
-        print "Usage : uaclient.py config method option"
-        sys.exit()
    
     #parte del programa smallsmilhander para parsear el XML
     parser = make_parser()
@@ -70,22 +66,20 @@ if __name__ == "__main__":
     puerto_rtp = int(diccionario['rtpaudio_puerto'])
     ip_proxy = diccionario['regproxy_ip']
     puerto_proxy = diccionario['regproxy_puerto']
+    client_address = (ip, puerto)
+    #-----------------------LOG----------------------------
     
-    #tengo que crear el log para ir registrando lo va ocurriendo!!!
-    #fichero
-    #def log()
     fich_log = diccionario['log_path']
-    #utilizo "a" para no sobreescribir el contenido
-    fich = open(fich_log, "a")
-    """
-    tiempo = time.gmtime(time.time()) #segundos en tupla
-    hora = time.strftime('%Y%m%d%H%M%S', tiempo)
-    ip_proxy = diccionario['regproxy_ip']
-    
-    fich.write(hora + "\t" + "accion que se ejecuta" + "\t" + proxy + mensaje "\r\n")
-    
-    """
-
+    def log(accion, linea):    
+        fich = open(fich_log, "a")
+        #utilizo "a" para no sobreescribir el contenido
+        tiempo = time.gmtime(time.time()) #segundos en tupla
+        hora = time.strftime('%Y%m%d%H%M%S', tiempo)
+        line = linea.split('\r\n')
+        texto = ' '.join(line)
+        
+        fich.write(hora + "\t" + accion + "\t" + texto + "\r\n")
+     #-------------------------------------------------------   
     
     
     if METODO == "REGISTER":
@@ -98,23 +92,23 @@ if __name__ == "__main__":
 
         LINE = METODO.upper() + " sip:" + usuario + ":" + str(puerto) + " SIP/2.0\r\n"
         LINE = LINE + "Expires: " + str(OPCION_EXPIRES) + "\r\n\r\n"
-        print LINE
+        
     elif METODO == "INVITE":
         #INVITE sip:receptor SIP/2.0\r\n
         OPCION_RECEPTOR = sys.argv[3] #la opcion es a quien se lo mandamos
         #excepcion si no es una cadena!!!
-        LINE = "INVITE sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
+        LINE = METODO.upper() + " sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
         LINE += "ContentType: application/sdp" + "\r\n\r\n"
         LINE += "v=0" + "\r\n"
         LINE += "o=" + usuario + " " + ip + "\r\n"
         LINE += "s= misesion" + "\r\n"
         LINE += "t=0" + "\r\n"
         LINE += "m= audio " + str(puerto_rtp) + " RTP" + "\r\n"  
-        print LINE
+        
     elif METODO == "BYE":
         OPCION_RECEPTOR = sys.argv[3]
-        LINE = "BYE sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
-        print LINE
+        LINE = METODO.upper() + "sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
+        
     else:  #SI NO ES NINGUNO DE ESTOS METODOS
         sys.exit("Usage: python uaclient.py config method opcion")
     
@@ -124,9 +118,13 @@ if __name__ == "__main__":
     my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     my_socket.connect((ip_proxy, int(puerto_proxy)))
     
+ 
+    
     print "Envio: " + LINE
     my_socket.send(LINE)
-
+    accion = "Sent to " + ip_proxy +":" + puerto_proxy + ":"
+    log (accion, LINE)
+    
     #Excepcion en caso de establecer conexion con un puerto no abierto
     try:
         data = my_socket.recv(1024)
@@ -140,13 +138,17 @@ if __name__ == "__main__":
         ringing = "SIP/2.0 180 Ringing\r\n\r\n"
         ok = "SIP/2.0 200 OK\r\n\r\n"
         respuesta = trying + ringing + ok
+        accion = "Received from " + ip_proxy + ":" + puerto_proxy + ":"
+        log (accion, respuesta)
+        
         if data == respuesta:
             print "He recibido las respuestas 100,180,200 mando ACK"
             sip = " SIP/2.0\r\n\r\n"
             asentimiento = "ACK" + " sip:" + RECEPTOR + "@" + SERVER + sip
             print "Enviando: " + asentimiento
             my_socket.send(asentimiento)
-   
+         
+   #ENVIO RTP?
 
     except (socket.error):
         print "No server listening at " + str(ip_proxy) + " port " + str(puerto_proxy)
