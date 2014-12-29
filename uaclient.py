@@ -38,6 +38,15 @@ class ClienteHandler(ContentHandler):
     def get_tags(self):
         return self.diccionario
 
+    def log(self, accion, linea, fich_log):    
+        fich = open(fich_log, "a")
+        #utilizo "a" para no sobreescribir el contenido
+        tiempo = time.gmtime(time.time()) #segundos en tupla
+        hora = time.strftime('%Y%m%d%H%M%S', tiempo)
+        line = linea.split('\r\n')
+        texto = ' '.join(line)
+        
+        fich.write(hora + "\t" + accion + "\t" + texto + "\r\n")
  
 if __name__ == "__main__":
     # Argumentos y errores
@@ -58,17 +67,24 @@ if __name__ == "__main__":
     parser.setContentHandler(cHandler)
     parser.parse(open(CONFIG_XML))
     diccionario = cHandler.get_tags()
-
+    #log = cHandler.log((self, accion, linea, fich_log)
+    
     #extraigo informacion XML
     usuario = diccionario['account_username']
     puerto = int(diccionario['uaserver_puerto'])
     ip = diccionario['uaserver_ip']
+    fich_log = diccionario['log_path']
+    #si no se indica la IP la tomareos como 127.0.0.1 en servidor y proxy
+    if ip == "":
+        ip = "127.0.0.1" 
     puerto_rtp = int(diccionario['rtpaudio_puerto'])
     ip_proxy = diccionario['regproxy_ip']
+    if ip_proxy == "":
+        ip_proxy = "127.0.0.1"
     puerto_proxy = diccionario['regproxy_puerto']
-    client_address = (ip, puerto)
-    #-----------------------LOG----------------------------
     
+    #-----------------------LOG----------------------------
+    """
     fich_log = diccionario['log_path']
     def log(accion, linea):    
         fich = open(fich_log, "a")
@@ -79,6 +95,7 @@ if __name__ == "__main__":
         texto = ' '.join(line)
         
         fich.write(hora + "\t" + accion + "\t" + texto + "\r\n")
+    """
      #-------------------------------------------------------   
     
     
@@ -101,13 +118,13 @@ if __name__ == "__main__":
         LINE += "ContentType: application/sdp" + "\r\n\r\n"
         LINE += "v=0" + "\r\n"
         LINE += "o=" + usuario + " " + ip + "\r\n"
-        LINE += "s= misesion" + "\r\n"
+        LINE += "s=misesion" + "\r\n"
         LINE += "t=0" + "\r\n"
-        LINE += "m= audio " + str(puerto_rtp) + " RTP" + "\r\n"  
-        
+        LINE += "m=audio " + str(puerto_rtp) + " RTP" + "\r\n"  
+
     elif METODO == "BYE":
         OPCION_RECEPTOR = sys.argv[3]
-        LINE = METODO.upper() + "sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
+        LINE = METODO.upper() + " sip:" + OPCION_RECEPTOR + " SIP/2.0\r\n"
         
     else:  #SI NO ES NINGUNO DE ESTOS METODOS
         sys.exit("Usage: python uaclient.py config method opcion")
@@ -123,32 +140,48 @@ if __name__ == "__main__":
     print "Envio: " + LINE
     my_socket.send(LINE)
     accion = "Sent to " + ip_proxy +":" + puerto_proxy + ":"
-    log (accion, LINE)
+    
+    cHandler.log (accion, LINE, fich_log)
     
     #Excepcion en caso de establecer conexion con un puerto no abierto
     try:
         data = my_socket.recv(1024)
-        print 'Recibido -- '
+        print 'Recibo del proxy -- '
         print data
-
+        print data.split()
         #Si el proxy/registrar me contesta..
+        accion = "Received from " + ip_proxy + ":" + puerto_proxy + ":"
+        cHandler.log (accion, data, fich_log)
+        
         if data == 'SIP/2.0 400 Bad Request\r\n\r\n':
             sys.exit()
-        trying = "SIP/2.0 100 Trying\r\n\r\n"
-        ringing = "SIP/2.0 180 Ringing\r\n\r\n"
-        ok = "SIP/2.0 200 OK\r\n\r\n"
-        respuesta = trying + ringing + ok
-        accion = "Received from " + ip_proxy + ":" + puerto_proxy + ":"
-        log (accion, respuesta)
-        
-        if data == respuesta:
+
+        linea = data.split()
+        if linea[1] == "100" and linea[4] == "180" and linea [7] == "200":
             print "He recibido las respuestas 100,180,200 mando ACK"
             sip = " SIP/2.0\r\n\r\n"
-            asentimiento = "ACK" + " sip:" + RECEPTOR + "@" + SERVER + sip
+            asentimiento = "ACK" + " sip:" + OPCION_RECEPTOR + sip
             print "Enviando: " + asentimiento
             my_socket.send(asentimiento)
-         
-   #ENVIO RTP?
+            accion = "Sent to " + ip_proxy + ":" + puerto_proxy + ":"
+            cHandler.log (accion, asentimiento, fich_log)
+            #Ese código ha de estar en los dos sitios: una vez después de enviar el ACK, otra vez después de recibir el ACK
+            print "HE MANDADO ACK, MANDO RTP"
+            print linea[13] #
+            receptor_IP = linea[13]
+            print linea[17] #receptor_Puerto
+            receptor_Puerto = linea[17]
+            
+            comando_rtp = "./mp32rtp -i " + str(receptor_IP) + " -p"
+            comando_rtp += str(receptor_Puerto) + " < "
+            FICHERO_AUDIO = diccionario['audio_path']
+            aEjecutar = comando_rtp + FICHERO_AUDIO
+            os.system(aEjecutar)
+            print "Se acaba la transmision de RTP"
+            #accion = "Sent to " + str(receptor_IP) + ":" + str(receptor_Puerto) + ":"
+            #cHandler.log (accion, data, fich_log)
+        
+   
 
     except (socket.error):
         print "No server listening at " + str(ip_proxy) + " port " + str(puerto_proxy)
