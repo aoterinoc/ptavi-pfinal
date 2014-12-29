@@ -92,7 +92,12 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 break
             print "Recibo del cliente"
             print line
+            #client_address me da la ip y puerto del que me envia .
+            ip_client = self.client_address[0]
+            port_client = self.client_address[1]
+           
             """
+            #client_address me da la ip y puerto del que me envia .
             ip_client = self.client_address[0]
             port_client = self.client_address[1]
             accion = "Received from " + str(ip_client) + ":" + str(port_client) + ":"
@@ -132,14 +137,16 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 
                 direcc = direcc[1]
                 print direcc
+                
                 #quiero la IP y puerto del cliente
                 cli_addr = self.client_address
                 self.wfile.write(" SIP/2.0 200 OK\r\n\r\n")                
-            #Solo metemos en el diccionario si el expires no es 0
+                
+                #Solo metemos en el diccionario si el expires no es 0
                 if expires != "0":
                     hora_s = time.time()
                     #guardo user, ip , puerto, date y expires
-                    #client_address me da la ip y puerto del que me envia .
+                    
                     registro[direcc] = [direcc,str(cli_addr[0]), str(puerto), hora_s, expires]
                     #falta IP!!
                 if expires == "0":
@@ -168,43 +175,100 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 usuario_inv = usuario_inv[1].split(':')[1]
                 print usuario_inv
                 
-                
-                if nom_client in registro:
-                    trying = "SIP/2.0 100 Trying\r\n\r\n"
-                    ringing = "SIP/2.0 180 Ringing\r\n\r\n"
-                    ok = "SIP/2.0 200 OK\r\n\r\n"
-                    #SDP que se manda con el 200 OK
-                    sdp = "ContentType: application/sdp" + "\r\n\r\n"
-                    sdp += "v=0" + "\r\n"
-                    nombre = diccionario['server_name']
-                    ip = diccionario['server_ip']
-                    sdp += "o=" + nombre + " " + ip + "\r\n"
-                    sdp += "s= misesion" + "\r\n"
-                    sdp += "t=0" + "\r\n"
-                    sdp += "m=audio" + "PONER PUERTO RTP" +"\r\n\r\n"
-                    cod_respuesta = trying + ringing + ok + sdp
-                    self.wfile.write(cod_respuesta)
-
-                    
-                    
-                    #self.my_socket.connect((ip_server, puerto_server)
-                    #self.my_socket.send(reenviar)
-               
-                    try:
-                        data = self.my_socket.recv(1024)
-                    except (socket.error):
-                        print "No server listening at "  + " port " 
-                        sys.exit()
-                if usuario_inv not in registro:
-                    self.wfile.write("SIP/2.0 404 User Not Found\r\n\r\n")
-                    #si no esta en el registro
-                    print "cliente que manda Invite sin antes registrarse"  
                 if nom_client not in registro:
-                    error = "Debes mandar un Register antes de hacer Invite"
+                    error = "ERROR:Debes mandar un REGISTER antes de INVITE\r\n"
                     self.wfile.write(error)
-              
-                
+                else:
+                    if usuario_inv in registro:
+                        #self.wfile.write("destinatario registrado")
+                        #Si esta reg-->reenvio
+                        #Cojo IP y puerto server del diccionario
+                        IP = registro[usuario_inv][1]
+                        PUERTO = registro[usuario_inv][2]
+                        #Cojo el mensaje a reenviar
 
+                        self.my_socket.connect((IP, int(PUERTO)))
+                        print IP
+                        print PUERTO
+                        print "Reenvio: " + line
+                        self.my_socket.send(line)
+                        try:
+                            resp = self.my_socket.recv(1024)
+                            print "Recibo del servidor"
+                            print resp
+                        except (socket.error):
+                            error = "No server listening at " + str(IP)           
+                            error += " port " + str(PUERTO) 
+                            print error 
+                            
+                        print "reenvio al cliente"
+                        print resp
+    
+                          
+                        self.wfile.write(resp)
+                        #LOOOOOOOG
+                        #accion = "Sent to " + ip_client +":" + port_client + ":" 
+                        #uaclient.cHandler.log (accion, resp, fich_log) 
+                    else :
+                        self.wfile.write("SIP/2.0 404 User Not Found\r\n\r\n")            
+                 
+            if metodo == "ACK":
+                destinatario = line.split('\r\n')[0].split(' ')[1]              
+                destinatario = destinatario.split(':')[1]
+                print destinatario 
+            
+                if destinatario in registro:
+                    #IP y PUERTO destinatario para reenviar ACK
+                    IP = registro[destinatario][1]
+                    PUERTO = registro[destinatario][2]
+
+                    self.my_socket.connect((IP, int(PUERTO)))
+                    print IP
+                    print PUERTO
+                    print "Reenvio: " + line
+                    self.my_socket.send(line)
+                    try:
+                        resp = self.my_socket.recv(1024)
+                        print "Recibo del servidor"
+                        print resp
+                    except (socket.error):
+                        error = "No server listening at " + str(IP)           
+                        error += " port " + str(PUERTO) 
+                        print error 
+                        
+                else :
+                    self.wfile.write("SIP/2.0 404 User Not Found\r\n\r\n")
+                    #si no esta en el registro     
+            
+            if metodo == "BYE":
+                destinatario = line.split('\r\n')[0].split(' ')[1]              
+                destinatario = destinatario.split(':')[1]
+                if destinatario in registro:
+                    #IP y PUERTO destinatario para reenviar BYE
+                    IP = registro[destinatario][1]
+                    PUERTO = registro[destinatario][2]
+                    
+                    self.my_socket.connect((IP, int(PUERTO)))
+                    print IP
+                    print PUERTO
+                    print "Reenvio: " + line
+                    self.my_socket.send(line)
+                    try:
+                        resp = self.my_socket.recv(1024)
+                        print "Recibo del servidor"
+                        print resp
+                    except (socket.error):
+                        error = "No server listening at " + str(IP)           
+                        error += " port " + str(PUERTO) 
+                        print error 
+                            
+                    print "reenvio al cliente"
+                    print resp    
+                    self.wfile.write(resp)
+                else :
+                    self.wfile.write("SIP/2.0 404 User Not Found\r\n\r\n")
+                    #si no esta en el registro                 
+           
 if __name__ == "__main__":
    # Dirección IP, puerto y mensaje para servidor
     if len(sys.argv) != 2:
@@ -222,14 +286,12 @@ if __name__ == "__main__":
     #En caso de no indicar la IP se utiliza la 127.0.0.1
     if IP == "":
         IP = "127.0.0.1"
-    
-
 
     PUERTO = diccionario['server_puerto']
     NAME = diccionario['server_name']
     #Instanciamos EchoHandler
     serv = SocketServer.UDPServer((IP, int(PUERTO)), EchoHandler)
-   
+    fich_log = diccionario['log_path']
     print "Server " + NAME + " listening at port " + PUERTO
     serv.serve_forever()   
 
