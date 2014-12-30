@@ -4,6 +4,7 @@
 import SocketServer
 from xml.sax import make_parser
 from xml.sax.handler import ContentHandler
+from uaclient import ClienteHandler
 import sys
 import os
 import os.path
@@ -51,6 +52,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
             print "Recibo del proxy -- "
             print line
             
+            
             linea = line.split('\r\n')
             print linea
             
@@ -60,10 +62,16 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
             print metodo
             
             if metodo not in Metodos_Aceptados:
-                self.wfile.write("SIP/2.0 405 Method Not Allowed\r\n\r\n")
-
+                error = "SIP/2.0 405 Method Not Allowed\r\n\r\n"
+                self.wfile.write(error)
+                accion = error.split('\r\n\r\n')[0]
+                cliente.log(accion,'', fich_log)
+            
             if metodo == "INVITE":
-
+                accion = "Received from " + str(IP_PROXY) +":"
+                accion += str(PUERTO_PROXY) + ":" 
+                cliente.log(accion, line, fich_log)
+                
                 nombre = diccionario['account_username']
                 ip = diccionario['uaserver_ip']
                 rtp_puerto = diccionario['rtpaudio_puerto']
@@ -79,10 +87,13 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 sdp += "t=0" + "\r\n"
                 sdp += "m=audio " + rtp_puerto + " RTP" + "\r\n\r\n"
                 cod_respuesta = trying + ringing + ok + sdp
-                print "Mando al proxy --"
-                
+                print "Mando al proxy --"                
                 self.wfile.write(cod_respuesta)
                 print cod_respuesta
+                accion = "Sent to " + str(IP_PROXY) +":"
+                accion += str(PUERTO_PROXY) + ":"                 
+                cliente.log(accion, cod_respuesta, fich_log)
+                
                 #GUARDO IP Y PUERTO CLIENTE PARA MANDAR RTP
                 receptor_IP = line.split('\r\n')[4].split(' ')[1]
                 Dicc_Rtp['receptor_IP'] = receptor_IP
@@ -91,7 +102,10 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                             
             if metodo == "ACK":
                 #El puerto y la IP lo cojo de Dicc_Rtp
-                
+                accion = "Received from " + str(IP_PROXY) +":"
+                accion += str(PUERTO_PROXY) + ":" 
+                cliente.log(accion, line, fich_log)
+    
                 print "Me llega ACK envio RTP"
                 comando_rtp = "./mp32rtp -i " + Dicc_Rtp['receptor_IP'] + " -p"
                 comando_rtp += Dicc_Rtp['receptor_Puerto'] + " < "
@@ -99,11 +113,22 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 aEjecutar = comando_rtp + FICHERO_AUDIO
                 os.system(aEjecutar)    
                 print "Se acaba la transmision de RTP"
-            
+                accion = "Sent to " + Dicc_Rtp['receptor_IP'] + ":" 
+                accion += Dicc_Rtp['receptor_Puerto'] + ":"
+                data = FICHERO_AUDIO
+                cliente.log (accion, data, fich_log)
             if metodo == "BYE":
+                accion = "Received from " + str(IP_PROXY) +":"
+                accion += str(PUERTO_PROXY) + ":" 
+                cliente.log(accion, line, fich_log)
+            
                 print "Mando al proxy SIP/2.0 200 OK"
-                self.wfile.write("SIP/2.0 200 OK\r\n\r\n")
-                
+                ok = "SIP/2.0 200 OK\r\n\r\n"
+                self.wfile.write(ok)
+                accion = "Sent to " + str(IP_PROXY) +":"
+                accion += str(PUERTO_PROXY) + ":" 
+                cliente.log(accion, ok, fich_log)
+
 if __name__ == "__main__":
     # Argumentos y errores
     if len(sys.argv) !=2  or os.path.exists(sys.argv[1]) is False:
@@ -118,8 +143,13 @@ if __name__ == "__main__":
     parser.setContentHandler(cHandler)
     parser.parse(open(CONFIG_XML))
     diccionario = cHandler.get_tags()
+    cliente = ClienteHandler()
 
+    IP_PROXY = diccionario ['regproxy_ip']
+    PUERTO_PROXY = diccionario ['regproxy_puerto']
     SERVER_IP = diccionario['uaserver_ip']
+    fich_log = diccionario['log_path']
+    
     if SERVER_IP == "":
         SERVER_IP = "127.0.0.1"
         print "IP POR DEFECTO"
@@ -127,8 +157,16 @@ if __name__ == "__main__":
     print SERVER_IP
     print SERVER_PORT
   # Creamos servidor de eco y escuchamos
-    
-    serv = SocketServer.UDPServer((SERVER_IP, int(SERVER_PORT)), EchoHandler)
-    print "Listening..."
-    serv.serve_forever()
-    
+    try:
+        serv = SocketServer.UDPServer((SERVER_IP, int(SERVER_PORT)), EchoHandler)
+        print "Listening..."
+        accion = 'Starting...'
+        cliente.log(accion, '', fich_log)
+        serv.serve_forever()
+    except(KeyboardInterrupt):
+        mensaje = "Programa interrumpido por el usuario"
+        print mensaje
+        accion = "Finishing\r\n"
+        cliente.log(accion, "", fich_log)
+
+
