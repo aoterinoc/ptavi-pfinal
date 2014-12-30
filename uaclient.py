@@ -38,13 +38,14 @@ class ClienteHandler(ContentHandler):
     def get_tags(self):
         return self.diccionario
 
+    #METODO LOG
     def log(self, accion, linea, fich_log):    
         fich = open(fich_log, "a")
         #utilizo "a" para no sobreescribir el contenido
         tiempo = time.gmtime(time.time()) #segundos en tupla
         hora = time.strftime('%Y%m%d%H%M%S', tiempo)
-        line = linea.split('\r\n')
-        texto = ' '.join(line)
+        line = linea.split('\r\n') #Quito saltos de linea
+        texto = ' '.join(line) #Transformo en espacios
         
         fich.write(hora + "\t" + accion + "\t" + texto + "\r\n")
  
@@ -82,23 +83,8 @@ if __name__ == "__main__":
     if ip_proxy == "":
         ip_proxy = "127.0.0.1"
     puerto_proxy = diccionario['regproxy_puerto']
-    
-    #-----------------------LOG----------------------------
-    """
-    fich_log = diccionario['log_path']
-    def log(accion, linea):    
-        fich = open(fich_log, "a")
-        #utilizo "a" para no sobreescribir el contenido
-        tiempo = time.gmtime(time.time()) #segundos en tupla
-        hora = time.strftime('%Y%m%d%H%M%S', tiempo)
-        line = linea.split('\r\n')
-        texto = ' '.join(line)
+
         
-        fich.write(hora + "\t" + accion + "\t" + texto + "\r\n")
-    """
-     #-------------------------------------------------------   
-    
-    
     if METODO == "REGISTER":
     # REGISTER sip:luke@polismassa.com:puerto SIP/2.0\r\n
         try:
@@ -171,15 +157,17 @@ if __name__ == "__main__":
             receptor_IP = linea[13]
             print linea[17] #receptor_Puerto
             receptor_Puerto = linea[17]
-            
+            FICHERO_AUDIO = diccionario['audio_path']
+            accion = "Sent to " + receptor_IP + ":" + receptor_Puerto + ":"
+            data = FICHERO_AUDIO
+            cHandler.log (accion, data, fich_log)
             comando_rtp = "./mp32rtp -i " + str(receptor_IP) + " -p"
             comando_rtp += str(receptor_Puerto) + " < "
-            FICHERO_AUDIO = diccionario['audio_path']
+            
             aEjecutar = comando_rtp + FICHERO_AUDIO
             os.system(aEjecutar)
             print "Se acaba la transmision de RTP"
-            #accion = "Sent to " + str(receptor_IP) + ":" + str(receptor_Puerto) + ":"
-            #cHandler.log (accion, data, fich_log)
+            
         
    
 
