@@ -64,10 +64,11 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
             if metodo not in Metodos_Aceptados:
                 error = "SIP/2.0 405 Method Not Allowed\r\n\r\n"
                 self.wfile.write(error)
-                accion = error.split('\r\n\r\n')[0]
-                cliente.log(accion,'', fich_log)
+                accion = "Error: "
+                err = error.split('\r\n\r\n')[0]                     
+                cliente.log(accion,err, fich_log)
             
-            if metodo == "INVITE":
+            elif metodo == "INVITE":
                 accion = "Received from " + str(IP_PROXY) +":"
                 accion += str(PUERTO_PROXY) + ":" 
                 cliente.log(accion, line, fich_log)
@@ -85,7 +86,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 sdp += "o=" + nombre + " " + ip + "\r\n"
                 sdp += "s=misesion" + "\r\n"
                 sdp += "t=0" + "\r\n"
-                sdp += "m=audio " + rtp_puerto + " RTP" + "\r\n\r\n"
+                sdp += "m=audio " + rtp_puerto + " RTP" + "\r\n"
                 cod_respuesta = trying + ringing + ok + sdp
                 print "Mando al proxy --"                
                 self.wfile.write(cod_respuesta)
@@ -100,7 +101,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 receptor_Puerto = line.split('\r\n')[7].split(" ")[1]
                 Dicc_Rtp['receptor_Puerto'] = receptor_Puerto
                             
-            if metodo == "ACK":
+            elif metodo == "ACK":
                 #El puerto y la IP lo cojo de Dicc_Rtp
                 accion = "Received from " + str(IP_PROXY) +":"
                 accion += str(PUERTO_PROXY) + ":" 
@@ -117,7 +118,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 accion += Dicc_Rtp['receptor_Puerto'] + ":"
                 data = FICHERO_AUDIO
                 cliente.log (accion, data, fich_log)
-            if metodo == "BYE":
+            elif metodo == "BYE":
                 accion = "Received from " + str(IP_PROXY) +":"
                 accion += str(PUERTO_PROXY) + ":" 
                 cliente.log(accion, line, fich_log)
@@ -128,6 +129,13 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 accion = "Sent to " + str(IP_PROXY) +":"
                 accion += str(PUERTO_PROXY) + ":" 
                 cliente.log(accion, ok, fich_log)
+            else:
+                error = "SIP/2.0 400 Bad Request\r\n\r\n"
+                self.wfile.write(error)
+                accion = "Error: "
+                err = error.split('\r\n\r\n')[0]                     
+                cliente.log(accion,err, fich_log)                
+                break
 
 if __name__ == "__main__":
     # Argumentos y errores
