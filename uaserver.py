@@ -75,7 +75,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 
                 nombre = diccionario['account_username']
                 ip = diccionario['uaserver_ip']
-                rtp_puerto = diccionario['rtpaudio_puerto']
+                #rtp_puerto = diccionario['rtpaudio_puerto']
         
                 trying = "SIP/2.0 100 Trying\r\n\r\n"
                 ringing = "SIP/2.0 180 Ringing\r\n\r\n"
@@ -86,7 +86,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 sdp += "o=" + nombre + " " + ip + "\r\n"
                 sdp += "s=misesion" + "\r\n"
                 sdp += "t=0" + "\r\n"
-                sdp += "m=audio " + rtp_puerto + " RTP" + "\r\n"
+                sdp += "m=audio " + str(rtp_puerto) + " RTP" + "\r\n\r\n"
                 cod_respuesta = trying + ringing + ok + sdp
                 print "Mando al proxy --"                
                 self.wfile.write(cod_respuesta)
@@ -100,7 +100,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 Dicc_Rtp['receptor_IP'] = receptor_IP
                 receptor_Puerto = line.split('\r\n')[7].split(" ")[1]
                 Dicc_Rtp['receptor_Puerto'] = receptor_Puerto
-                            
+                print receptor_Puerto + "puerto envio RTP!!!"           
             elif metodo == "ACK":
                 #El puerto y la IP lo cojo de Dicc_Rtp
                 accion = "Received from " + str(IP_PROXY) +":"
@@ -154,19 +154,28 @@ if __name__ == "__main__":
     cliente = ClienteHandler()
 
     IP_PROXY = diccionario ['regproxy_ip']
-    PUERTO_PROXY = diccionario ['regproxy_puerto']
+    if IP_PROXY <= "0.0.0.0" or IP_PROXY >= "255.255.255.255":
+        sys.exit("Error: El rango de tu IP no es válido")
+    
     SERVER_IP = diccionario['uaserver_ip']
     fich_log = diccionario['log_path']
+    if SERVER_IP <= "0.0.0.0" or SERVER_IP >= "255.255.255.255":
+        sys.exit("Error: El rango de tu IP no es válido")
     
     if SERVER_IP == "":
         SERVER_IP = "127.0.0.1"
-        print "IP POR DEFECTO"
-    SERVER_PORT = diccionario['uaserver_puerto']
+    try:
+        SERVER_PORT = int(diccionario['uaserver_puerto'])
+        PUERTO_PROXY = int(diccionario ['regproxy_puerto'])
+        rtp_puerto = int(diccionario['rtpaudio_puerto'])
+    except ValueError:
+        print "Error: El puerto debe ser un entero"  
+    
     print SERVER_IP
     print SERVER_PORT
   # Creamos servidor de eco y escuchamos
     try:
-        serv = SocketServer.UDPServer((SERVER_IP, int(SERVER_PORT)), EchoHandler)
+        serv = SocketServer.UDPServer((SERVER_IP, SERVER_PORT), EchoHandler)
         print "Listening..."
         accion = 'Starting...'
         cliente.log(accion, '', fich_log)
