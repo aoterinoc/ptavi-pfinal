@@ -72,17 +72,28 @@ if __name__ == "__main__":
     
     #extraigo informacion XML
     usuario = diccionario['account_username']
-    puerto = int(diccionario['uaserver_puerto'])
+    try:
+        puerto = int(diccionario['uaserver_puerto'])
+        puerto_rtp = int(diccionario['rtpaudio_puerto'])
+        puerto_proxy = int(diccionario['regproxy_puerto'])
+    except ValueError:
+        print "Error: El puerto debe ser un entero"
+        sys.exit()
     ip = diccionario['uaserver_ip']
+    if ip <= "0.0.0.0" or ip >= "255.255.255.255":
+        sys.exit("Error: El rango de tu IP no es válido")
+    
     fich_log = diccionario['log_path']
     #si no se indica la IP la tomareos como 127.0.0.1 en servidor y proxy
     if ip == "":
         ip = "127.0.0.1" 
-    puerto_rtp = int(diccionario['rtpaudio_puerto'])
+    
     ip_proxy = diccionario['regproxy_ip']
+    if ip_proxy <= "0.0.0.0" or ip_proxy >= "255.255.255.255":
+        sys.exit("Error: El rango de tu IP no es válido")
     if ip_proxy == "":
         ip_proxy = "127.0.0.1"
-    puerto_proxy = diccionario['regproxy_puerto']
+    
 
         
     if METODO == "REGISTER":
@@ -106,7 +117,7 @@ if __name__ == "__main__":
         LINE += "o=" + usuario + " " + ip + "\r\n"
         LINE += "s=misesion" + "\r\n"
         LINE += "t=0" + "\r\n"
-        LINE += "m=audio " + str(puerto_rtp) + " RTP" + "\r\n"  
+        LINE += "m=audio " + str(puerto_rtp) + " RTP" + "\r\n\r\n"  
 
     elif METODO == "BYE":
         OPCION_RECEPTOR = sys.argv[3]
@@ -119,13 +130,13 @@ if __name__ == "__main__":
     #me tengo que atar al proxy porque es con el que intercambio datos
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    my_socket.connect((ip_proxy, int(puerto_proxy)))
+    my_socket.connect((ip_proxy, puerto_proxy))
     
  
     
     print "Envio: " + LINE
     my_socket.send(LINE)
-    accion = "Sent to " + ip_proxy +":" + puerto_proxy + ":"
+    accion = "Sent to " + ip_proxy +":" + str(puerto_proxy) + ":"
     
     cHandler.log (accion, LINE, fich_log)
     
@@ -136,7 +147,7 @@ if __name__ == "__main__":
         print data
         print data.split()
         #Si el proxy/registrar me contesta..
-        accion = "Received from " + ip_proxy + ":" + puerto_proxy + ":"
+        accion = "Received from " + ip_proxy + ":" + str(puerto_proxy) + ":"
         cHandler.log (accion, data, fich_log)
         
         if data == 'SIP/2.0 400 Bad Request\r\n\r\n':
@@ -149,7 +160,7 @@ if __name__ == "__main__":
             asentimiento = "ACK" + " sip:" + OPCION_RECEPTOR + sip
             print "Enviando: " + asentimiento
             my_socket.send(asentimiento)
-            accion = "Sent to " + ip_proxy + ":" + puerto_proxy + ":"
+            accion = "Sent to " + ip_proxy + ":" + str(puerto_proxy) + ":"
             cHandler.log (accion, asentimiento, fich_log)
             #Ese código ha de estar en los dos sitios: una vez después de enviar el ACK, otra vez después de recibir el ACK
             print "HE MANDADO ACK, MANDO RTP"
@@ -167,8 +178,15 @@ if __name__ == "__main__":
             aEjecutar = comando_rtp + FICHERO_AUDIO
             os.system(aEjecutar)
             print "Se acaba la transmision de RTP"
+            """
+            print "CVLC"
+            aEjecutar_cvlc = "cvlc rtp://@" + str(receptor_IP) + ":"
+            aEjecutar_cvlc += str(receptor_Puerto)
+            print "Vamos a ejecutar", aEjecutar_cvlc
+            os.system(aEjecutar_cvlc)
+            """
+
             
-        
    
 
     except (socket.error):
