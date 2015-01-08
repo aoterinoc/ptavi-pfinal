@@ -17,6 +17,7 @@ from uaclient import ClienteHandler
 registro={} #Registro proxy usuarios
 METODOS_ACEPTADOS = ["REGISTER" , "INVITE", "BYE", "ACK"]
 
+
 class ProxyHandler(ContentHandler):
 
     def __init__(self):
@@ -83,9 +84,15 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
        self.my_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
        self.my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+       #Cabecera proxy
+       IP_PROXY = diccionario['server_ip']
+       PUERTO_PROXY = diccionario['server_puerto']       
+       Cabecera = "Via: SIP/2.0/UDP " + IP_PROXY + ":" + str(PUERTO_PROXY) 
+       Cabecera += ";branch=z9hG4bKced27353\r\n"
+       print Cabecera
        while 1:
             # Lee linea a lina lo que llega del cliente
-
+            
             line = self.rfile.read()
 
             #Comprobamos si hay linea en blanco
@@ -192,8 +199,9 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 accion = "Received from " + str(IP_C) +":" + str(port_client) + ":" 
                 cliente.log (accion, line, fich_log)
                 
+                #Usuario debe estar registrado antes de mandar invite
                 if nom_client not in registro:
-                    msj = "Debes mandar un REGISTER antes de INVITE\r\n"
+                    msj = "SIP/2.0 404 Not Found\r\n\r\n"
                     self.wfile.write(msj)
                     accion = 'Error: '
                     error = msj + str(IP_C) +":" + str(port_client) + ":" 
@@ -209,7 +217,19 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                         self.my_socket.connect((IP, int(PUERTO)))
                         print IP
                         print PUERTO
+                        li_ca_p = line.split("\r\n")
+                        
+                        """
+                        reenvio = li_ca_p[0] + '\r\n' + Cabecera
+                        reenvio +=  li_ca_p[1] + '\r\n\r\n' + li_ca_p[3]
+                        reenvio += '\r\n' + li_ca_p[4] + '\r\n' + li_ca_p[5]
+                        reenvio += '\r\n' + li_ca_p[6] + '\r\n' + li_ca_p[7]
+                        reenvio += '\r\n'
+                        print reenvio
+                        """
                         print "Reenvio Invite --" + line
+                       
+                        
                         self.my_socket.send(line)
                         accion = "Sent to " + str(IP) +":" + str(PUERTO) + ":" 
                         cliente.log (accion, line, fich_log)
@@ -268,9 +288,9 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                     cliente.log (accion, error, fich_log)   
             
             if metodo == "BYE":
-                sip = "SIP/2.0"  #\r\n
+                sip = "SIP/2.0" 
                 li = linea[0]
-                print "h" + str(li)
+               
                 if 'sip:' not in li or sip not in li or "@" not in li:
                     error = "SIP/2.0 400 Bad Request\r\n\r\n"
                     self.wfile.write(error)                    
@@ -278,7 +298,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                     error = error + str(IP_C) + ':' + str(port_client) + ':'
                     cliente.log (accion, error, fich_log) 
                     break
-                
+               
                 accion = "Received from " + str(IP_C) +":"
                 accion += str(port_client) + ":" 
                 cliente.log (accion, line, fich_log)
@@ -344,17 +364,43 @@ if __name__ == "__main__":
     diccionario = cHandler.get_tags()
     cliente = ClienteHandler() #Instancio ClienteHandler()
     IP = diccionario['server_ip']
-    fich_log = diccionario['log_path']
+    if IP <= "0.0.0.0" or IP >= "255.255.255.255":
+        sys.exit("Error: El rango de tu IP no es válido")
     #En caso de no indicar la IP se utiliza la 127.0.0.1
     if IP == "":
         IP = "127.0.0.1"
-
-    PUERTO = diccionario['server_puerto']
+    fich_log = diccionario['log_path']
+    registro = diccionario['database_path']
+    """
+    fichero = open(registro, 'r')
+    #leo desde la línea 1 en adelante
+    lineas = fichero.readlines()[1:]
+    print lineas
+    for x in lineas:
+        print x
+       
+        corto_espacio = x.split('\t')
+        
+        print corto_espacio
+        name = corto_espacio[0]
+        ip = corto_espacio[1]
+        puerto = corto_espacio[2]
+        Exp = corto_espacio[4].split('\r\n')[0]
+        print Exp
+        print name
+        print ip
+        print puerto
+    """
+    try:
+        PUERTO = int(diccionario['server_puerto'])
+    except ValueError:
+        print "Error: El puerto debe ser un entero"
+    
     NAME = diccionario['server_name']
     try:
         #Instanciamos EchoHandler
-        serv = SocketServer.UDPServer((IP, int(PUERTO)), EchoHandler)
-        print "Server " + NAME + " listening at port " + PUERTO + "..."
+        serv = SocketServer.UDPServer((IP, PUERTO), EchoHandler)
+        print "Server " + NAME + " listening at port " + str(PUERTO) + "..."
         accion = 'Starting...'
         cliente.log(accion, '', fich_log)
         serv.serve_forever() 
