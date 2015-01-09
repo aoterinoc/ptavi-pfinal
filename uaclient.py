@@ -16,7 +16,8 @@ class ClienteHandler(ContentHandler):
 
     def __init__(self):
         self.diccionario = {}
-        self.tags = ["account", "uaserver", "rtpaudio", "regproxy", "log", "audio"]
+        self.tags = ["account", "uaserver", "rtpaudio", "regproxy", "log",
+                     "audio"]
         self.atributos = {
             "account": ["username"],
             "uaserver": ["ip", "puerto"],
@@ -102,7 +103,8 @@ if __name__ == "__main__":
             print "Usage : uaclient.py config method option"
             sys.exit()
 
-        LINE = METODO.upper() + " sip:" + usuario + ":" + str(puerto) + " SIP/2.0\r\n"
+        LINE = METODO.upper() + " sip:" + usuario + ":" + str(puerto)
+        LINE += " SIP/2.0\r\n"
         LINE = LINE + "Expires: " + str(OPCION_EXPIRES) + "\r\n\r\n"
 
     elif METODO == "INVITE":
@@ -141,16 +143,14 @@ if __name__ == "__main__":
         data = my_socket.recv(1024)
         print 'Recibo del proxy -- '
         print data
-        print data.split()
+
         #Si el proxy/registrar me contesta..
         accion = "Received from " + ip_proxy + ":" + str(puerto_proxy) + ":"
         cHandler.log(accion, data, fich_log)
 
         if data == 'SIP/2.0 400 Bad Request\r\n\r\n':
             sys.exit()
-        #Por ejemplo si el servidor no esta escuchando
-        if data == '':
-            sys.exit()
+
         linea = data.split()
 
         if linea[1] == "100" and linea[4] == "180" and linea[7] == "200":
@@ -161,11 +161,9 @@ if __name__ == "__main__":
             my_socket.send(asentimiento)
             accion = "Sent to " + ip_proxy + ":" + str(puerto_proxy) + ":"
             cHandler.log(accion, asentimiento, fich_log)
-            #Ese código ha de estar en los dos sitios: una vez después de enviar el ACK, otra vez después de recibir el ACK
+
             print "HE MANDADO ACK, MANDO RTP"
-            print linea[13] #
             receptor_IP = linea[13]
-            print linea[17]  # receptor_Puerto
             receptor_Puerto = linea[17]
             FICHERO_AUDIO = diccionario['audio_path']
             accion = "Sent to " + receptor_IP + ":" + receptor_Puerto + ":"
@@ -177,16 +175,15 @@ if __name__ == "__main__":
             aEjecutar = comando_rtp + FICHERO_AUDIO
             os.system(aEjecutar)
             print "Se acaba la transmision de RTP"
-            """
-            print "CVLC"
-            aEjecutar_cvlc = "cvlc rtp://@" + str(receptor_IP) + ":"
-            aEjecutar_cvlc += str(receptor_Puerto)
+
+            aEjecutar_cvlc = "cvlc rtp://" + str(receptor_IP) + ":"
+            aEjecutar_cvlc += str(receptor_Puerto) + " 2> /dev/null"
             print "Vamos a ejecutar", aEjecutar_cvlc
-            os.system(aEjecutar_cvlc)
-            """
+            os.system(aEjecutar_cvlc + "&")
 
     except (socket.error):
-        accion = "No server listening at " + str(ip_proxy) + " port " + str(puerto_proxy)
+        accion = "No server listening at " + str(ip_proxy) + " port "
+        accion += str(puerto_proxy)
         print accion
         cHandler.log(accion, '', fich_log)
         sys.exit()
