@@ -18,8 +18,9 @@ class ServidorHandler(ContentHandler):
 
     def __init__(self):
         self.diccionario = {}
-        self.tags = ["account", "uaserver", "rtpaudio", "regproxy", "log"
-        self.tags += "audio"]
+        self.tags = ["account", "uaserver", "rtpaudio", "regproxy", "log",
+                     "audio"]
+
         self.atributos = {
             "account": ["username"],
             "uaserver": ["ip", "puerto"],
@@ -57,12 +58,10 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
             print line
 
             linea = line.split('\r\n')
-            print linea
 
             #miro nombre metodo
             lin = linea[0].split()
             metodo = lin[0]
-            print metodo
 
             if metodo not in Metodos_Aceptados:
                 error = "SIP/2.0 405 Method Not Allowed\r\n\r\n"
@@ -103,7 +102,7 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 Dicc_Rtp['receptor_IP'] = receptor_IP
                 receptor_Puerto = line.split('\r\n')[7].split(" ")[1]
                 Dicc_Rtp['receptor_Puerto'] = receptor_Puerto
-                print receptor_Puerto + "puerto envio RTP!!!"
+
             elif metodo == "ACK":
                 #El puerto y la IP lo cojo de Dicc_Rtp
                 accion = "Received from " + str(IP_PROXY) + ":"
@@ -121,6 +120,11 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
                 accion += Dicc_Rtp['receptor_Puerto'] + ":"
                 data = FICHERO_AUDIO
                 cliente.log(accion, data, fich_log)
+
+                aEjecutar_cvlc = "cvlc rtp://" + Dicc_Rtp['receptor_IP'] + ":"
+                aEjecutar_cvlc += Dicc_Rtp['receptor_Puerto'] + " 2> /dev/null"
+                print "Vamos a ejecutar", aEjecutar_cvlc
+                os.system(aEjecutar_cvlc + "&")
             elif metodo == "BYE":
                 accion = "Received from " + str(IP_PROXY) + ":"
                 accion += str(PUERTO_PROXY) + ":"
@@ -174,8 +178,6 @@ if __name__ == "__main__":
     except ValueError:
         print "Error: El puerto debe ser un entero"
 
-    print SERVER_IP
-    print SERVER_PORT
   # Creamos servidor de eco y escuchamos
     try:
         serv = SocketServer.UDPServer((SERVER_IP, SERVER_PORT), EchoHandler)
