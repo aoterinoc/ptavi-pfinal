@@ -99,7 +99,6 @@ class EchoHandler(SocketServer.DatagramRequestHandler):
             port_client = self.client_address[1]
 
             linea = line.split('\r\n')
-   
             #miro nombre metodo
             lin = linea[0].split()
             metodo = lin[0]
@@ -370,6 +369,7 @@ if __name__ == "__main__":
         PUERTO = int(diccionario['server_puerto'])
     except ValueError:
         print "Error: El puerto debe ser un entero"
+        sys.exit()
     NAME = diccionario['server_name']
     try:
         # Instanciamos EchoHandler
